@@ -1,0 +1,85 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const prefetch=require('../src/BoardScope/wwwroot/mosaic-prefetch.js');
+Object.assign(global,prefetch);
+const {MosaicExport,standaloneMosaicViewer}=require('../src/BoardScope/wwwroot/mosaic-export.js');
+assert.equal(MosaicExport.fileAddress('C:\\Board scans\\A #1','scan','mosaic-1.dzi'),'file:///C:/Board%20scans/A%20%231/scan/mosaic-1.dzi');
+assert.equal(MosaicExport.fileAddress('\\\\host\\share folder','scan','mosaic.dzi'),'file://host/share%20folder/scan/mosaic.dzi');
+assert.equal(MosaicExport.filename('Board viewer'),'Board viewer.html');assert.throws(()=>MosaicExport.filename('../board'),/filename/);assert.throws(()=>MosaicExport.filename('CON.html'),/filename/);
+for(const bad of ['javascript:alert(1)','https://example.com/image.jpg',''])assert.throws(()=>MosaicExport.address(bad));
+assert.equal(MosaicExport.address('../tiles/mosaic.dzi'),'../tiles/mosaic.dzi');
+assert.equal(MosaicExport.address('.\\tiles\\mosaic.dzi'),'./tiles/mosaic.dzi');
+const config={title:'Board </script><img src=x onerror=bad()>',description:'NCC · sharp',mosaicUrl:'file:///C:/Board%20scans/mosaic-1.dzi',width:40000,height:30000,tileSize:512,overlap:0,format:'jpg'};
+const vendor=fs.readFileSync('src/BoardScope/wwwroot/vendor/openseadragon.min.js','utf8'),license=fs.readFileSync('src/BoardScope/wwwroot/vendor/LICENSE.txt','utf8');
+const html=MosaicExport.build(config,vendor,license);
+assert.ok(!/<script[^>]+src=/.test(html),'no external scripts');assert.ok(html.includes('Redistribution and use in source and binary forms'));
+const scripts=[...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)];assert.equal(scripts.length,4,'untrusted names cannot inject script tags');
+const saved=JSON.parse(scripts[0][2]);assert.equal(saved.mosaicUrl,config.mosaicUrl);assert.equal(saved.title,config.title);
+const svg=fs.readFileSync('src/BoardScope/wwwroot/export-assets/pewcb-logo.svg','utf8');
+const page=MosaicExport.build({...config,title:'CoreXY',seoTitle:'CoreXY PCB microscope scan | PewCB',publicUrl:'https://pewcb.github.io/PewCB.GigaPixelScans/CoreXY/',favicon:'data:image/svg+xml,'+encodeURIComponent(svg)},vendor,license);
+assert.ok(page.includes('<title>CoreXY PCB microscope scan | PewCB</title>'));
+assert.ok(page.includes('property="og:image" content="https://pewcb.github.io/PewCB.GigaPixelScans/CoreXY/preview.jpg"'));
+assert.ok(page.includes('name="twitter:card" content="summary_large_image"'));
+assert.ok(page.includes('rel="canonical" href="https://pewcb.github.io/PewCB.GigaPixelScans/CoreXY/"'));
+assert.equal(decodeURIComponent(page.match(/rel="icon"[^>]*href="data:image\/svg\+xml,([^"]+)"/)[1]),svg);
+for(const script of scripts.slice(2))new vm.Script(script[2]);
+assert.ok(!/\bfetch\(/.test(scripts.at(-1)[2]),'exported runtime has no metadata or backend requests');
+const elements=new Map(),element=id=>{if(!elements.has(id))elements.set(id,{hidden:true,textContent:''});return elements.get(id);};
+element('mosaic-config').textContent=JSON.stringify(saved);
+let options;const actions=[];const fakeViewer={world:{getItemAt:()=>({imageToViewportZoom:()=>7})},viewport:{zoomBy:n=>actions.push(n),zoomTo:n=>actions.push(n),goHome:()=>actions.push('fit')},addHandler(){},setFullScreen:n=>actions.push(n),isFullPage:()=>false};
+const runtime={document:{getElementById:element,baseURI:'file:///C:/exports/viewer.html'},URL,JSON,Math,OpenSeadragon:o=>{options=o;return fakeViewer;},installMosaicPrefetch(){}};
+vm.runInNewContext(`(${standaloneMosaicViewer.toString()})();`,runtime);
+assert.equal(options.drawer,'canvas');assert.equal(options.loadTilesWithAjax,false);assert.equal(options.tileSources.getTileUrl(12,5,7),'file:///C:/Board%20scans/mosaic-1_files/12/5_7.jpg');
+element('fit').onclick();element('pixels').onclick();assert.deepEqual(actions,['fit',7]);
+saved.mosaicUrl='https://example.com/maps/board.dzi?token=abc';element('mosaic-config').textContent=JSON.stringify(saved);vm.runInNewContext(`(${standaloneMosaicViewer.toString()})();`,runtime);
+assert.equal(options.tileSources.getTileUrl(8,1,2),'https://example.com/maps/board_files/8/1_2.jpg?token=abc');
+saved.mosaicUrl='../Board scans/mosaic.dzi';element('mosaic-config').textContent=JSON.stringify(saved);vm.runInNewContext(`(${standaloneMosaicViewer.toString()})();`,runtime);
+assert.equal(options.tileSources.getTileUrl(8,1,2),'file:///C:/Board%20scans/mosaic_files/8/1_2.jpg');
+runtime.document.baseURI='https://example.com/reports/viewer.html';vm.runInNewContext(`(${standaloneMosaicViewer.toString()})();`,runtime);
+assert.equal(options.tileSources.getTileUrl(8,1,2),'https://example.com/Board%20scans/mosaic_files/8/1_2.jpg');
+assert.equal(JSON.parse(MosaicExport.build({...config,mosaicUrl:'./mosaic.dzi'},vendor,license).match(/id="mosaic-config"[^>]*>([^<]+)/)[1]).mosaicUrl,'./mosaic.dzi');
+console.log('PASS static viewer embeds code, license and metadata, escapes names, reads local tiles directly and supports hosted URLs without backend requests');
+
+const c={width:8192,height:8192,tileSize:512};
+const ring=prefetch.mosaicPrefetchCandidates(c,{x:2048,y:2048,width:512,height:512},13);
+assert.equal(ring.length,8);assert.ok(ring.every(t=>t.level===13&&Math.abs(t.x-4)<=1&&Math.abs(t.y-4)<=1&&(t.x!==4||t.y!==4)));
+const zoom=prefetch.mosaicPrefetchCandidates(c,{x:2048,y:2048,width:1024,height:1024},12);assert.equal(zoom.filter(t=>t.level===13).length,4);
+assert.ok(prefetch.mosaicPrefetchCandidates(c,{x:0,y:0,width:8192,height:8192},13).length===0);
+assert.ok(prefetch.mosaicPrefetchCandidates(c,{x:512,y:512,width:6000,height:6000},13).length<=32);
+console.log('PASS prefetch candidates are a bounded one-tile border plus a few next-zoom tiles, with no whole-image preload');
+
+(async()=>{
+  const timers=new Map(),handlers=new Map(),requests=[];let counter=0,fullyLoaded=false;
+  const source={getTileUrl:(level,x,y)=>`${level}/${x}_${y}.jpg`,downloadTileStart:ctx=>ctx.native=true,downloadTileAbort:ctx=>ctx.aborted=true};
+  const image={source,getFullyLoaded:()=>fullyLoaded,viewportToImageRectangle:()=>({x:2048,y:2048,width:512,height:512}),viewportToImageZoom:()=>1};
+  const viewer={world:{getItemAt:()=>image},viewport:{getBounds:()=>({}),getZoom:()=>1},imageLoader:{jobsInProgress:0},addHandler(event,fn){handlers.set(event,fn);}};
+  class FakeImage{set src(value){this.url=value;requests.push(this);}}
+  const ctx={Image:FakeImage,window:{devicePixelRatio:1},queueMicrotask,
+    setTimeout(fn){const id=++counter;timers.set(id,fn);return id;},clearTimeout(id){timers.delete(id);},mosaicPrefetchCandidates:prefetch.mosaicPrefetchCandidates};
+  vm.runInNewContext(`globalThis.install=${prefetch.installMosaicPrefetch.toString()}`,ctx);ctx.install(viewer,c);handlers.get('open')();
+  function tick(){const [id,fn]=timers.entries().next().value;timers.delete(id);fn();}
+  tick();assert.equal(requests.length,0,'visible tiles take priority');fullyLoaded=true;tick();assert.equal(requests.length,2,'at most two background downloads');
+  const warm=requests[0];let delivered;const job={src:warm.url,userData:{},finish(value){delivered=value;}};source.downloadTileStart(job);assert.equal(job.native,undefined);
+  warm.onload();assert.equal(delivered,warm,'an in-flight prefetch is shared with the visible request');
+  let ready;source.downloadTileStart({src:warm.url,userData:{},finish(value){ready=value;}});await new Promise(resolve=>queueMicrotask(resolve));assert.equal(ready,warm,'decoded images are reused without another request');
+  const waiting={src:requests[1].url,userData:{},finish(){throw Error('cancelled request completed');}};source.downloadTileStart(waiting);source.downloadTileAbort(waiting);requests[1].onload();
+  const normal={src:'elsewhere.jpg',userData:{}};source.downloadTileStart(normal);assert.equal(normal.native,true);source.downloadTileAbort(normal);assert.equal(normal.aborted,true);
+  handlers.get('close')();assert.equal(timers.size,0);
+  console.log('PASS visible loading pauses prefetch, concurrency stays bounded, warm images are shared, and cancellation falls back safely');
+
+  Object.assign(global,{$:element,StitchHistory:{updateControls(){}},window:{},toast(){}});
+  MosaicExport.pending={source:'http://local/projects/older/mosaic-old.dzi',title:'Older map',description:'NCC'};
+  element('mosaicExportName').value='Older map';element('mosaicExportUrl').value='file:///C:/boards/older/mosaic-old.dzi';
+  const order=[],written=[];global.window.showSaveFilePicker=async()=>{order.push('picker');return {createWritable:async()=>({write:async b=>written.push(await b.text()),close:async()=>{},abort:async()=>{}})};};
+  MosaicExport.text=async url=>{order.push(url);return url.endsWith('.dzi')?'xml':url.endsWith('LICENSE.txt')?license:vendor;};MosaicExport.metadata=()=>({...c,height:8192,overlap:0,format:'jpg'});
+  element('mosaicExportDialog').close=()=>{};await MosaicExport.save();assert.equal(order[0],'picker');assert.equal(order[1],MosaicExport.pending.source);assert.equal(written.length,1);assert.ok(written[0].includes('file:///C:/boards/older/mosaic-old.dzi'));
+  console.log('PASS save picker runs before fetching and saves a standalone file for the captured historical map with the selected static address');
+  const count=written.length;
+  global.window.showSaveFilePicker=async()=>{const error=new Error('cancelled');error.name='AbortError';throw error;};
+  const reads=order.length;await MosaicExport.save();assert.equal(written.length,count);assert.equal(order.length,reads,'cancelling the picker does not fetch or save');
+  let downloaded;
+  global.window.showSaveFilePicker=async()=>{const error=new Error('picker unavailable');error.name='SecurityError';throw error;};
+  global.document={body:{appendChild(){}},createElement:()=>({click(){downloaded=this.download;},remove(){}})};
+  global.setTimeout=fn=>fn();
+  await MosaicExport.save();assert.equal(downloaded,'Older map.html');
+  console.log('PASS picker cancellation saves nothing and unavailable pickers use a normal HTML download');
+})().catch(error=>{console.error(error);process.exitCode=1;});

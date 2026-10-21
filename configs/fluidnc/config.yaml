@@ -1,0 +1,107 @@
+# CoreXY stage: +X right, +Y up; home left and down.
+# Both sensorless thresholds: 35; homing current 0.25 A RMS; speed 600 mm/min; 2 mm pull-off.
+# Standard $H homes Y then X, with no intermediate clearance move.
+# Individual $HX and $HY may be used in either order after the mechanical fix.
+# Optional $RM=0 homes both axes, then parks at machine X100 Y50.
+# FluidNC uses max_travel_mm * seek_scaler as the maximum homing search.
+# Soft bounds: machine X 0..210 mm, Y 0..130 mm after homing.
+# Seek allowances: X210 * 1.1 = 231 mm; Y130 * 2.0769231 = approximately 270 mm.
+# Homing is required after restart. idle_ms 255 retains motor holding current.
+axes:
+  homing_runs: 1
+  shared_stepper_disable_pin: gpio.8
+  x:
+    acceleration_mm_per_sec2: 200
+    homing:
+      cycle: 2
+      allow_single_axis: true
+      positive_direction: false
+      mpos_mm: 0
+      seek_mm_per_min: 600
+      feed_mm_per_min: 600
+      settle_ms: 300
+      seek_scaler: 1.1
+      feed_scaler: 1.0
+    max_rate_mm_per_min: 3000
+    max_travel_mm: 210
+    motor0:
+      hard_limits: false
+      limit_all_pin: NO_PIN
+      limit_neg_pin: gpio.7:pd
+      limit_pos_pin: NO_PIN
+      pulloff_mm: 2
+      tmc_2209:
+        addr: 1
+        direction_pin: gpio.4:low
+        disable_pin: NO_PIN
+        hold_amps: 0.25
+        homing_amps: 0.25
+        homing_mode: StallGuard
+        microsteps: 16
+        r_sense_ohms: 0.1
+        run_amps: 0.5
+        run_mode: StealthChop
+        stallguard: 35
+        stallguard_debug: false
+        step_pin: gpio.5
+        uart_num: 1
+    soft_limits: true
+    steps_per_mm: 80
+  y:
+    acceleration_mm_per_sec2: 200
+    max_rate_mm_per_min: 3000
+    max_travel_mm: 130
+    motor0:
+      hard_limits: false
+      limit_all_pin: NO_PIN
+      limit_neg_pin: gpio.9:pd
+      limit_pos_pin: NO_PIN
+      pulloff_mm: 2
+      tmc_2209:
+        addr: 0
+        direction_pin: gpio.6:low
+        disable_pin: NO_PIN
+        hold_amps: 0.25
+        homing_amps: 0.25
+        homing_mode: StallGuard
+        microsteps: 16
+        r_sense_ohms: 0.1
+        run_amps: 0.5
+        run_mode: StealthChop
+        stallguard: 35
+        stallguard_debug: false
+        step_pin: gpio.10
+        uart_num: 1
+    soft_limits: true
+    steps_per_mm: 80
+    homing:
+      cycle: 1
+      allow_single_axis: true
+      positive_direction: false
+      mpos_mm: 0
+      seek_mm_per_min: 600
+      feed_mm_per_min: 600
+      settle_ms: 300
+      seek_scaler: 2.0769231
+      feed_scaler: 1.0
+board: ESP32-S3 Super Mini custom controller
+kinematics:
+  CoreXY:
+    x_scaler: 1.0
+name: CoreXY Microscope Stage
+start:
+  check_limits: false
+  must_home: true
+stepping:
+  dir_delay_us: 1
+  disable_delay_us: 0
+  engine: Timed
+  idle_ms: 255
+  pulse_us: 4
+uart1:
+  baud: 115200
+  mode: 8N1
+  rxd_pin: gpio.2
+  txd_pin: gpio.1
+macros:
+  macro0: $H&G21 G90 G53 G1 X100 Y50 F600&G4 P0.1

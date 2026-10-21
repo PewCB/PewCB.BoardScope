@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const controls=new Map(),$=id=>{if(!controls.has(id))controls.set(id,{disabled:false,hidden:false,checked:false,value:'reference',textContent:'',removeAttribute(name){delete this[name];}});return controls.get(id);};
+const profile={id:'abc123',created:'2026-10-21T10:00:00Z',width:1920,height:1080,minGain:.8,maxGain:1.3,fitErrorPercent:.2};
+let next={enabled:true,profile},calls=[],errors=[],pending=null;
+const state={features:{lightBackground:true},camera:{connected:true},engine:{job:{busy:false},manual:null},lightBackground:{enabled:false,profile:null}};
+const ctx=vm.createContext({$,state,Date,toast:(message,error)=>{if(error)errors.push(message);},poll:async()=>{},api:async(path,body)=>{calls.push({path,body});if(pending)await pending;if(next instanceof Error)throw next;return next;}});
+vm.runInContext(fs.readFileSync('src/BoardScope/wwwroot/light-background.js','utf8')+'\nglobalThis.ui=LightBackgroundUI;',ctx);
+(async()=>{
+  const ui=ctx.ui;ui.init();ui.update();assert.equal($('captureLightBackground').disabled,false);assert.equal($('enableLightBackground').disabled,true);assert.equal($('lightBackgroundDetails').hidden,true);
+  let release;pending=new Promise(resolve=>release=resolve);const capture=ui.capture();assert.equal($('captureLightBackground').disabled,true);assert.match($('lightBackgroundStatus').textContent,/8 fresh frames/);release();await capture;pending=null;
+  assert.equal(calls[0].path,'/light-background/capture');assert.equal(state.lightBackground.profile.id,profile.id);assert.equal($('enableLightBackground').checked,true);assert.equal($('lightBackgroundDetails').hidden,false);assert.match($('lightBackgroundPreview').src,/abc123\/preview\?kind=reference$/);assert.match($('lightBackgroundStatus').textContent,/1920 × 1080/);
+  $('lightBackgroundPreviewKind').value='corrected';ui.preview();assert.match($('lightBackgroundPreview').src,/kind=corrected$/);
+  $('enableLightBackground').checked=false;next={enabled:false,profile};await ui.enable();assert.equal(calls.at(-1).body.enabled,false);assert.equal(state.lightBackground.enabled,false);
+  $('enableLightBackground').checked=true;next=Error('Cannot change while scanning');await ui.enable();assert.equal($('enableLightBackground').checked,false);assert.equal(errors.at(-1),'Cannot change while scanning');
+  state.engine.job.busy=true;ui.update();assert.equal($('captureLightBackground').disabled,true);assert.equal($('enableLightBackground').disabled,true);
+  state.engine.job.busy=false;state.camera.connected=false;ui.update();assert.equal($('captureLightBackground').disabled,true);assert.equal($('enableLightBackground').disabled,false);
+  state.features.lightBackground=false;ui.update();assert.equal($('enableLightBackground').disabled,true);assert.match($('lightBackgroundStatus').textContent,/Restart/);
+  const html=fs.readFileSync('src/BoardScope/wwwroot/index.html','utf8');for(const id of controls.keys())assert.ok(html.includes(`id="${id}"`),id+' exists in the page');
+  console.log('PASS light background capture, busy states, enable persistence, error recovery and reference previews');
+})().catch(error=>{console.error(error);process.exitCode=1;});

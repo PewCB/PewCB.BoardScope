@@ -1,0 +1,51 @@
+# Build output and dependencies
+**/bin/
+**/obj/
+dist/
+artifacts/
+node_modules/
+TestResults/
+coverage/
+
+# Captures, calibration references, saved projects and exports
+data/
+output/
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.bmp
+*.gif
+*.webp
+*.heic
+*.raw
+*.dzi
+*_files/
+
+# Local tools, editor state and diagnostics
+.playwright-cli/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Local secrets and settings
+.env
+.env.*
+!.env.example
+*.local.json
+*.local.yaml
+*.local.yml
+*.pfx
+*.p12
+*.key
+
+# Controller read-backs and workstation-specific investigation records
+/configs/fluidnc/controller-*.yaml
+/configs/fluidnc/REPOSITORY.md
+/configs/fluidnc/HOMING-INVESTIGATION.md

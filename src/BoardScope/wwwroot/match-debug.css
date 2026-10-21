@@ -1,0 +1,27 @@
+.match-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none!important}
+.tile-outline.support-zero{border-color:#ff7c85;border-width:2px}
+.tile-outline.support-one{border-color:#ffc866;border-width:2px}
+.tile-outline.neighbor-accepted{border:2px solid #6ce1b5}
+.tile-outline.neighbor-rejected{border:2px dashed #ff7c85}
+.tile-outline.pair-endpoint{box-shadow:0 0 0 2px #53dfff88}
+.tile-outline.selected{border-width:3px}
+.match-debug-panel{border-top:1px solid #dfe7ec;padding-top:10px;margin-top:12px}
+.match-debug-panel h4{font-size:12px;margin:12px 0 6px}
+.match-debug-panel .button-row{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}
+.match-debug-panel button{padding:6px 8px;font-size:10px;flex:1}
+.match-debug-panel button.active{background:#276d59;color:white;border-color:#276d59}
+.match-debug-panel label.check{display:flex;align-items:center;gap:6px;margin:7px 0;font-size:11px}
+.match-debug-panel label.check input{width:auto}
+.match-debug-panel select{width:100%;font-size:11px}
+.match-debug-panel .match-reason{font-weight:600;color:#8f493c;margin:6px 0;font-size:11px}
+.match-debug-panel .match-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:10px;margin:10px 0}
+.match-legend .accepted{color:#247957}.match-legend .rejected{color:#b64452}.match-legend .weak{color:#97701f}
+.match-debug-panel .match-numbers,.match-debug-panel .match-status{font-size:10px;line-height:1.6;overflow-wrap:anywhere;margin:6px 0}
+.match-debug-panel .match-status{color:#607887}
+.tile-info dd{overflow-wrap:anywhere;max-width:170px}
+.match-debug-panel #matchAttempts ol{padding-left:18px;margin:8px 0;font-size:10px;line-height:1.5}
+.match-debug-panel #matchAttempts li{margin:9px 0;overflow-wrap:anywhere}
+.match-debug-panel #matchAttempts span,.match-debug-panel #matchAttempts small{display:block;color:#607887}
+.match-debug-panel #parallaxOffsets ol{padding-left:18px;margin:8px 0;font-size:10px;line-height:1.5}
+.match-debug-panel #parallaxOffsets li{margin:9px 0;overflow-wrap:anywhere}
+.match-debug-panel #parallaxOffsets span{display:block;color:#607887}
